@@ -1,0 +1,150 @@
+#!/usr/bin/env ruby
+require 'wasm/version'
+
+# The installed gem directory
+@gem_dir = "#{Gem::Specification.find_by_name('wasm').gem_dir}"
+
+# Compilation optimizations flag
+@optimize = false
+
+# Extending `String` to include some fancy colors
+class String
+  def colorize(c); "\e[#{c}m#{self}\e[0m" end
+  def bold;  colorize('1')    end
+  def success; colorize('1;32') end
+  def error; colorize('1;31') end
+end
+
+# Build a Ruby file
+def build(rb_file)
+
+  # Clean up the build directory
+  FileUtils.rm_f 'build/app.c'
+  FileUtils.rm_f 'build/app.js'
+  FileUtils.rm_f 'build/app.wasm'
+  FileUtils.rm_f 'build/app.html'
+
+  # Check if source file provided is good
+  if !rb_file
+    puts 'Please provide a Ruby file to build'
+    exit
+  elsif !File.exists? rb_file
+    puts "Can't find file: #{rb_file}"
+    exit
+  end
+
+  # Create the build directory
+  FileUtils.mkdir_p 'build'
+
+  # Create MRuby bytecode from Ruby source file
+  `mrbc -Bruby_app -obuild/app.c #{rb_file}`
+
+  # Add MRuby init code to app bytecode
+  open('build/app.c', 'a') do |f|
+    f << "\n\n" << File.read("#{@gem_dir}/assets/mruby_init.c")
+  end
+
+  # Compile using Emscripten
+  `emcc -s WASM=1 #{ if @optimize then '-Os' end } -I #{@gem_dir + '/assets/mruby/include'} build/app.c #{@gem_dir + '/assets/mruby/libmruby.a'} -o build/app.js #{ if @optimize then '--closure 1' end }`
+
+  # Copy HTML template from gem assets to build directory
+  FileUtils.cp "#{@gem_dir}/assets/template.html", 'build/app.html'
+
+  # Clean up
+  FileUtils.rm_f 'build/app.c'
+
+end
+
+# Serve a build WebAssembly binary
+def serve(open_browser)
+
+  if !File.exists? 'build/app.html'
+    puts 'No WebAssembly app built!'
+    exit
+  end
+
+  if open_browser
+    open_cmd = 'open'
+
+    case RUBY_PLATFORM
+    when /linux/
+      open_cmd = "xdg-#{open_cmd}"
+    when /mingw/
+      open_cmd = 'start'
+    end
+
+    Thread.new do
+      sleep 2
+      `#{open_cmd} http://localhost:8000/app.html`
+    end
+  end
+
+  `ruby -run -ehttpd ./build -p8000`
+end
+
+# Check for problems
+def doctor
+
+  errors = false
+
+  puts "\nChecking for Emscripten tools"
+
+  # Check for `emcc`
+  print '  emcc...'
+  if `which emcc`.empty?
+    puts 'not found'.error
+    errors = true
+  else
+    puts 'found'.success
+  end
+
+  # Check for `emar`
+  print '  emar...'
+  if `which emar`.empty?
+    puts 'not found'.error
+    errors = true
+  else
+    puts 'found'.success
+  end
+
+  if errors
+    puts "\nErrors were found!\n\n"
+    puts "Did you run \`./emsdk_env.sh\` ?", "For help, check out the \"Getting Started\" guide on webassembly.org\n\n"
+  else
+    puts "\n👍 Everything looks good!\n\n"
+  end
+
+end
+
+# Check Command-line Arguments #################################################
+
+usage = 'Ruby on WebAssembly'.bold + "\n
+Usage: ruby-wasm <command> <options>
+                 [-v|--version]
+
+Summary of commands and options:
+  build <file.rb>    Build a Ruby source file
+    --optimize         Compile with all optimizations
+  serve              Serve the build WebAssembly binary
+    -o|--open          Open the default web browser after serving
+  doctor             Check for problems with your WebAssembly toolchain
+  -v|--version       Prints the installed version\n\n"
+
+case ARGV[0]
+when 'build'
+  if ARGV.delete '--optimize' then @optimize = true end
+  build ARGV[1]
+when 'serve'
+  case ARGV[1]
+  when '-o', '--open'
+    serve(true)
+  else
+    serve(false)
+  end
+when 'doctor'
+  doctor
+when '-v', '--version'
+  puts WASM::VERSION
+else
+  puts usage
+end
