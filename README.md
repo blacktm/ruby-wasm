@@ -56,6 +56,6 @@ This will create a `build/` directory and generate the following files:
 - `app.js` — JavaScript needed to fetch our `.wasm` binary and initialize the WebAssembly environment ([learn more](http://webassembly.org/getting-started/js-api))
 - `app.html` — A simple HTML template with a `<script>` tag to load the JavaScript file above
 
-To view our Ruby WebAssembly app in the browser, we'll have to serve the files over HTTP (we're using the JavaScript [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API), and cross-origin requests are only supported for HTTP). Run `ruby-wasm serve` to do this.
+To view our Ruby WebAssembly app in the browser, we'll have to serve the files over HTTP (the JavaScript above will use the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) to load the `.wasm` binary). Run `ruby-wasm serve` to do this.
 
 Finally, open your favorite web browser and go to `http://localhost:8000/app.html`. Open your web inspector / developer tools and you'll see "Hello Ruby!" printed in the console. Exciting! 🙌
