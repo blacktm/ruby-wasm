@@ -39,15 +39,17 @@ def build(rb_file)
   print "\nCompiling #{rb_file}..."
 
   # Create MRuby bytecode from Ruby source file
-  `mrbc -Bruby_app -obuild/app.c #{rb_file}`
+  cmd("#{mrbc} -Bruby_app -obuild/app.c #{rb_file}")
 
   # Add MRuby init code to app bytecode
   open('build/app.c', 'a') do |f|
     f << "\n\n" << File.read("#{@gem_dir}/assets/mruby_init.c")
   end
 
+  include_dir = @gem_dir + '/assets/mruby/include'
+  libmruby = first_extant_file( "./mruby/build/emscripten/lib/libmruby.a" , ENV["LIBMRUBY"] , @gem_dir + '/assets/mruby/libmruby.a' )
   # Compile using Emscripten
-  `emcc -s WASM=1 #{ if @optimize then '-Os' end } -I #{@gem_dir + '/assets/mruby/include'} build/app.c #{@gem_dir + '/assets/mruby/libmruby.a'} -o build/app.js #{ if @optimize then '--closure 1' end }`
+  cmd("emcc -s WASM=1 #{ if @optimize then '-Os' end } -I #{include_dir} build/app.c #{libmruby} -o build/app.js #{ if @optimize then '--closure 1' end }")
 
   # Copy HTML template from gem assets to build directory
   FileUtils.cp "#{@gem_dir}/assets/template.html", 'build/app.html'
@@ -147,6 +149,26 @@ def doctor(mode = nil)
   errors
 end
 
+def vendor_mruby
+  if File.exist?("#{@gem_dir}/mruby/README.md")
+    Dir.mkdir('mruby')
+    FileUtils.cp_r "#{@gem_dir}/mruby", "."
+    FileUtils.cp "#{@gem_dir}/build_config.rb", "./mruby/build_config.rb"
+  else
+    puts "Gem was checked out without submodules, cannot vendor mruby"
+    puts "Try these commands yourself:"
+    puts "  git clone https://github.com/mruby/mruby"
+    puts "  cp #{@gem_dir}/build_config.rb ./mruby/build_config.rb"
+    exit 1
+  end
+end
+
+def compile_mruby
+  Dir.chdir('mruby') do
+    system 'rake'
+  end
+end
+
 # Check Command-line Arguments #################################################
 
 usage = 'Ruby on WebAssembly'.bold + "\n
@@ -159,6 +181,8 @@ Summary of commands and options:
   serve              Serve the build WebAssembly binary
     -o|--open          Open the default web browser after serving
   doctor             Check for problems with your WebAssembly toolchain
+  vendor_mruby       Copy mruby source code into ./mruby
+  compile_mruby      Compile mruby from ./mruby
   -v|--version       Prints the installed version\n\n"
 
 case ARGV[0]
@@ -174,6 +198,10 @@ when 'serve'
   end
 when 'doctor'
   doctor
+when 'vendor_mruby'
+  vendor_mruby
+when 'compile_mruby'
+  compile_mruby
 when '-v', '--version'
   puts WASM::VERSION
 else
