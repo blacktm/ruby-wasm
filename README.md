@@ -35,17 +35,32 @@ What it doesn't do yet (maybe something you'd like to work on 🤔):
 
 First, make sure you have the WebAssembly toolchain installed and activated — see the ["Getting Started" guide](http://webassembly.org/getting-started/developers-guide) for details.
 
-Start by cloning this repo (the `--recursive` option also grabs the MRuby submodule and initializes it):
+Start by installing this gem:
 
 ```
-git clone --recursive https://github.com/blacktm/ruby-wasm.git
+gem install wasm
 ```
-
-`cd` into the directory. Notice there's a file called `hello.rb` — we're going to build it for WebAssembly!
 
 Make sure you have this `wasm` gem installed. Remember, you can check for issues using `ruby-wasm doctor`
 
-Now, we'll build (or compile) the "Hello Ruby!" app using:
+Then create a test dir for some example Ruby code:
+
+```
+mkdir ruby-wasm-test
+cd ruby-wasm-test
+echo 'puts "#{MRUBY_DESCRIPTION}"' > hello.rb
+```
+
+If you've installed using `gem`, you won't have a working mruby library, so run:
+
+```
+ruby-wasm vendor_mruby
+ruby-wasm build_mruby
+```
+
+This will create a dir called 'mruby' with the emscripten-compatible build_config.rb copied over. You can edit this to ie. include more mrb-gems in your build.
+
+Now we'll finally compile that Ruby file for the browser:
 
 ```
 ruby-wasm build hello.rb
