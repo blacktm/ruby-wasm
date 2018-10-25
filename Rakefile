@@ -1,11 +1,6 @@
 mruby_version = '1.4.1'
+require_relative 'lib/wasm/colorize'
 require_relative 'lib/wasm/version'
-
-class String
-  def colorize(c); "\e[#{c}m#{self}\e[0m" end
-  def bold; colorize('1')    end
-  def blue; colorize('1;34') end
-end
 
 def print_task(task)
   print "\n", "==> ".blue, task.bold, "\n\n"

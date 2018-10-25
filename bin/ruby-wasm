@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 require 'fileutils'
+require 'wasm/colorize'
 require 'wasm/version'
 
 # The installed gem directory
@@ -7,14 +8,6 @@ require 'wasm/version'
 
 # Compilation optimizations flag
 @optimize = false
-
-# Extending `String` to include some fancy colors
-class String
-  def colorize(c); "\e[#{c}m#{self}\e[0m" end
-  def bold;  colorize('1')    end
-  def success; colorize('1;32') end
-  def error; colorize('1;31') end
-end
 
 # Build a Ruby file
 def build(rb_file)
