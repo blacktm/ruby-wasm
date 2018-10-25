@@ -9,14 +9,6 @@ require 'wasm/version'
 # Compilation optimizations flag
 @optimize = false
 
-# Extending `String` to include some fancy colors
-class String
-  def colorize(c); "\e[#{c}m#{self}\e[0m" end
-  def bold;  colorize('1')    end
-  def success; colorize('1;32') end
-  def error; colorize('1;31') end
-end
-
 def first_extant_file(*files)
   files.each do |file|
     if File.exist?( File.expand_path(file || "") )
@@ -57,6 +49,8 @@ def build(rb_file)
 
   # Create the build directory
   FileUtils.mkdir_p 'build'
+
+  print "\nCompiling #{rb_file}..."
 
   mrbc = first_extant_file( "./mruby/build/host/bin/mrbc" , ENV["MRBC"] , "mrbc")
   # Create MRuby bytecode from Ruby source file
