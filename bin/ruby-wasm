@@ -12,23 +12,31 @@ require 'wasm/version'
 # Build a Ruby file
 def build(rb_file)
 
-  # Clean up the build directory
-  FileUtils.rm_f 'build/app.c'
-  FileUtils.rm_f 'build/app.js'
-  FileUtils.rm_f 'build/app.wasm'
-  FileUtils.rm_f 'build/app.html'
-
   # Check if source file provided is good
   if !rb_file
-    puts 'Please provide a Ruby file to build'
+    puts "Provide a Ruby file to build"
     exit
   elsif !File.exists? rb_file
     puts "Can't find file: #{rb_file}"
     exit
   end
 
+  # Check for compiler toolchain issues
+  if doctor(:building)
+    puts "Fix errors before building.\n\n"
+    return false
+  end
+
+  # Clean up the build directory
+  FileUtils.rm_f 'build/app.c'
+  FileUtils.rm_f 'build/app.js'
+  FileUtils.rm_f 'build/app.wasm'
+  FileUtils.rm_f 'build/app.html'
+
   # Create the build directory
   FileUtils.mkdir_p 'build'
+
+  print "\nCompiling #{rb_file}..."
 
   # Create MRuby bytecode from Ruby source file
   `mrbc -Bruby_app -obuild/app.c #{rb_file}`
@@ -46,6 +54,13 @@ def build(rb_file)
 
   # Clean up
   FileUtils.rm_f 'build/app.c'
+
+  puts "done".success, "
+Files created:
+  build/
+  ├── app.html
+  ├── app.js
+  └── app.wasm\n\n"
 
 end
 
@@ -77,9 +92,22 @@ def serve(open_browser)
 end
 
 # Check for problems
-def doctor
+def doctor(mode = nil)
 
   errors = false
+  mruby_errors = false
+  emscripten_errors = false
+
+  puts "\nChecking for MRuby"
+
+  # Check for `mrbc`
+  print '  mrbc...'
+  if `which mrbc`.empty?
+    puts 'not found'.error
+    mruby_errors = true
+  else
+    puts 'found'.success
+  end
 
   puts "\nChecking for Emscripten tools"
 
@@ -87,7 +115,7 @@ def doctor
   print '  emcc...'
   if `which emcc`.empty?
     puts 'not found'.error
-    errors = true
+    emscripten_errors = true
   else
     puts 'found'.success
   end
@@ -96,18 +124,27 @@ def doctor
   print '  emar...'
   if `which emar`.empty?
     puts 'not found'.error
-    errors = true
+    emscripten_errors = true
   else
     puts 'found'.success
   end
 
+  if mruby_errors || emscripten_errors then errors = true end
+
   if errors
     puts "\nErrors were found!\n\n"
-    puts "Did you run \`./emsdk_env.sh\` ?", "For help, check out the \"Getting Started\" guide on webassembly.org\n\n"
+    if mruby_errors
+      puts "* Did you install MRuby?"
+    end
+    if emscripten_errors
+      puts "* Did you run \`./emsdk_env.sh\` ?", "  For help, check out the \"Getting Started\" guide on webassembly.org"
+    end
+    puts "\n"
   else
-    puts "\n👍 Everything looks good!\n\n"
+    puts "\n👍 Everything looks good!\n\n" unless mode == :building
   end
 
+  errors
 end
 
 # Check Command-line Arguments #################################################
